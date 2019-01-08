@@ -55,3 +55,37 @@ Esto hace que un encaminamiento basado en el siguiente salto no sea útil ya que
 - **keepalive**: sirve de confirmación para el mensaje open. Si la sesión BGP va a ser limitada es necesario mandar un mensaje keepalive cada cierto tiempo (30 seg) para indicar que la sesión continúa. Con esto se evita la congestión de la red.
 - **notification**: cierra la sesión BGP, es decir, se anulan las rutas apredidas durante dicha sesión. Además manda un código de error en caso de que no se haya recibido un mensaje, o faltase algún keepalive dentro del hello time (90 seg).
 - **update**: intercambia información de encaminamiento como las rutas a eliminar, los atributos de las mismas o los prefijos de red accesible y su longitud. Este mensaje se envía solo si hay algún cambio en la topología y su recepción provoca que el proceso BGP se active para modificar las tablas de rutas y enviar a su vez otro update a los demás vecinos.
+
+
+## BGP - Atributos de ruta
+
+Son usados para dirigir el proceso de selección de ruta. Pueden ser:
+
+- **bien conocidos y obligatorios**: el atributo debe ser reconocido en todas las implementaciones de BGP y ha de estar presente en cada mensaje update.
+- **bien conocidos y no obligatorios**: estar en el update es opcional.
+- **opcionales transitivos**: no tienen que estar en todas las implementaciones BGP pero en caso de estar han de ser reenviados a otros vecinos.
+- **opcionales no transitivos**: no necesitan ser reenviados a otros vecinos.
+
+Los atributos más comunes son los siguientes:
+
+- **ORIGIN**: bien conocido y obligatorio. Identifica el origen de una ruta, el cual puede ser iBGP (la ruta se genera en el propio SA), eBGP (la ruta es externa al SA) o incomplete (la ruta es inyectada por un método externo).
+- **AS_PATH**: bien conocido y obligatorio. Es una lista con los SA que forman la ruta para alcanzar el destino. (100 - 200 - 300 || el camino para ir es 300 -> 200 -> 100). Permite el control de bucles si el ASN del propio encaminador ya estaba en la lista.
+- **NEXT_HOP**: bien conocido y obligatorio. Indica la IP del encaminador frontera que será el próximo salto en eBGP. En iBGP no hay cambios pero el protocolo interno elige el encaminamiento dentro del SA.
+- **LOCAL_PREF**: bien conocido no obligatorio. Indica la preferencia local para cada ruta dentro del SA. Solo se tiene en cuenta a nivel de iBGP pero no eBGP.
+- **ATOMIC_AGGREGATE**: bien conocido no obligatorio. Este atributo indica agregado de rutas, lo cual ocurre cuando un mismo encaminador recibe varios anuncios para redes de distintas rutas, en este caso puede optar por anunciarlas como tal o por agregarlas con un prefijo más corto.
+- **AGGREGATOR**: opcional transitivo. Indica el último ASN que hizo agregado de rutas e indica la ip del encaminador que lo hizo.
+- **MULTI_EXIT_DISC**: opcional no transitivo. En caso de que dos SA estén unidos por dos o más rutas este atributo indica cual es preferible para encaminar a través de él.
+
+## BGP - Proceso de decisión
+
+Hay que tener en cuenta que el encaminamiento es a nivel local!!.
+
+1. se elige el anuncio con mayor LOCAL_PREF.
+2. si hay empate se elige la ruta originada localmente.
+3. si hay empate se usa el AS_PATH más corto.
+4. si hay empate se usa el ORIGIN menor, es decir, se prima antes IGP que EGP y que Incomplete.
+5. si hay empate se usa el menor MED.
+6. si hay empate entonces eBGP antes que iBGP.
+7. si hay empate la ruta con coste IGP menor al siguiente salto.
+8. si hay empate vecino BGP con id menor.
+9. si hay empate vecino BGP con IP menor.
